@@ -1,0 +1,66 @@
+---
+- name: Deploiement ClamAV Automation (scan + cron)
+  hosts: all
+  become: yes
+  become_method: sudo
+  become_user: root
+  become_flags: '-H'
+
+  tasks:
+
+    # 1️⃣ Créer les dossiers nécessaires
+    - name: Creer les dossiers ClamAV
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      loop:
+        - /opt/clamav/scripts
+        - /var/log/clamav
+
+    # 2️⃣ Copier les scripts
+    - name: Copier les scripts ClamAV
+      copy:
+        src: "{{ item }}"
+        dest: /opt/clamav/scripts/
+        owner: root
+        group: root
+        mode: '0755'
+      loop:
+        - clamav_scan.sh
+        - clamav_update.sh
+
+    # 3️⃣ Copier les cron
+    - name: Installer les cron ClamAV
+      copy:
+        src: "{{ item }}"
+        dest: /etc/cron.d/
+        owner: root
+        group: root
+        mode: '0644'
+      loop:
+        - clamav_scan.cron
+        - clamav_update.cron
+
+    # 4️⃣ Créer les fichiers de logs
+    - name: Creer les fichiers de log
+      file:
+        path: "{{ item }}"
+        state: touch
+        owner: root
+        group: root
+        mode: '0600'
+      loop:
+        - /var/log/clamav/clamav-scan.log
+        - /var/log/clamav/freshclam.log
+
+    # 5️⃣ Test presence ClamAV
+    - name: Verifier clamscan
+      command: clamscan --version
+      register: clamav_check
+      changed_when: false
+
+    - debug:
+        msg: "ClamAV OK sur {{ inventory_hostname }}"
