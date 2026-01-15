@@ -40,8 +40,8 @@
         group: root
         mode: '0755'
       loop:
-        - files/clamav_scan.sh
-        - files/clamav_update.sh
+        - scripts/clamav_scan.sh
+        - scripts/clamav_update.sh
 
     - name: Copier les cron ClamAV
       copy:
