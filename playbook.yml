@@ -51,8 +51,8 @@
         group: root
         mode: '0644'
       loop:
-        - clamav_scan.cron
-        - clamav_update.cron
+        - cron/clamav_scan.cron
+        - cron/clamav_update.cron
 
     - name: Creer les fichiers de log
       file:
