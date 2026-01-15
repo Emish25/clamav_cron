@@ -8,8 +8,9 @@ SCAN_DIRS="/"
 LOG_FILE="/var/log/clamav/clamav-scan.log"
 
 CENTRAL_SERVER="10.10.0.127"
-CENTRAL_USER="clamav"
+CENTRAL_USER="egarane"
 CENTRAL_FILE="/var/log/clamav/scan-status.log"
+SSH_PORT=312
 
 HOST_IP=$(hostname -I | awk '{print $1}')
 DATE=$(date '+%Y-%m-%d %H:%M')
@@ -46,11 +47,11 @@ esac
 
 ### CENTRALISATION ###
 # Créer le fichier central si nécessaire
-ssh -o BatchMode=yes -o ConnectTimeout=5 "$CENTRAL_USER@$CENTRAL_SERVER" \
+ssh -p $SSH_PORT -o BatchMode=yes -o ConnectTimeout=5 "$CENTRAL_USER@$CENTRAL_SERVER" \
 "mkdir -p $(dirname $CENTRAL_FILE); touch $CENTRAL_FILE; chmod 640 $CENTRAL_FILE" 2>/dev/null
 
 # Envoyer le statut
-ssh -o BatchMode=yes -o ConnectTimeout=5 "$CENTRAL_USER@$CENTRAL_SERVER" \
+ssh -p $SSH_PORT -o BatchMode=yes -o ConnectTimeout=5 "$CENTRAL_USER@$CENTRAL_SERVER" \
 "echo '$MARK $HOST_IP - $STATUS - $DATE' >> $CENTRAL_FILE" 2>/dev/null || \
 echo "$DATE - Erreur push central" >> "$LOG_FILE"
 
