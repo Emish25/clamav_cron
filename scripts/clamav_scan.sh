@@ -16,7 +16,7 @@ DATE=$(date '+%Y-%m-%d %H:%M')
 
 ### PRE-CHECK ###
 if ! command -v clamscan >/dev/null 2>&1; then
-    echo "$(date) - clamscan introuvable" >> "$LOG_FILE"
+    echo "$DATE - clamscan introuvable" >> "$LOG_FILE"
     exit 2
 fi
 
@@ -45,9 +45,13 @@ case "$EXIT_CODE" in
 esac
 
 ### CENTRALISATION ###
-echo "$MARK $HOST_IP - $STATUS - $DATE" | \
-ssh -o BatchMode=yes -o ConnectTimeout=5 \
-"$CENTRAL_USER@$CENTRAL_SERVER" \
-"cat >> $CENTRAL_FILE" 2>/dev/null
+# Créer le fichier central si nécessaire
+ssh -o BatchMode=yes -o ConnectTimeout=5 "$CENTRAL_USER@$CENTRAL_SERVER" \
+"mkdir -p $(dirname $CENTRAL_FILE); touch $CENTRAL_FILE; chmod 640 $CENTRAL_FILE" 2>/dev/null
+
+# Envoyer le statut
+ssh -o BatchMode=yes -o ConnectTimeout=5 "$CENTRAL_USER@$CENTRAL_SERVER" \
+"echo '$MARK $HOST_IP - $STATUS - $DATE' >> $CENTRAL_FILE" 2>/dev/null || \
+echo "$DATE - Erreur push central" >> "$LOG_FILE"
 
 exit "$EXIT_CODE"
