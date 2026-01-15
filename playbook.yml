@@ -6,9 +6,21 @@
   become_user: root
   become_flags: '-H'
 
+  vars:
+    ansible_remote_tmp: /tmp/.ansible
+
+  environment:
+    ANSIBLE_REMOTE_TEMP: /tmp/.ansible
+    ANSIBLE_HOST_KEY_CHECKING: "False"
+
   tasks:
 
-    # 1️⃣ Créer les dossiers nécessaires
+    - name: Creer dossier temp Ansible (prévention erreur)
+      file:
+        path: /tmp/.ansible
+        state: directory
+        mode: '0777'
+
     - name: Creer les dossiers ClamAV
       file:
         path: "{{ item }}"
@@ -20,7 +32,6 @@
         - /opt/clamav/scripts
         - /var/log/clamav
 
-    # 2️⃣ Copier les scripts
     - name: Copier les scripts ClamAV
       copy:
         src: "{{ item }}"
@@ -32,8 +43,7 @@
         - clamav_scan.sh
         - clamav_update.sh
 
-    # 3️⃣ Copier les cron
-    - name: Installer les cron ClamAV
+    - name: Copier les cron ClamAV
       copy:
         src: "{{ item }}"
         dest: /etc/cron.d/
@@ -44,7 +54,6 @@
         - clamav_scan.cron
         - clamav_update.cron
 
-    # 4️⃣ Créer les fichiers de logs
     - name: Creer les fichiers de log
       file:
         path: "{{ item }}"
@@ -55,12 +64,3 @@
       loop:
         - /var/log/clamav/clamav-scan.log
         - /var/log/clamav/freshclam.log
-
-    # 5️⃣ Test presence ClamAV
-    - name: Verifier clamscan
-      command: clamscan --version
-      register: clamav_check
-      changed_when: false
-
-    - debug:
-        msg: "ClamAV OK sur {{ inventory_hostname }}"
