@@ -7,10 +7,10 @@
 SCAN_DIRS="/"
 LOG_FILE="/var/log/clamav/clamav-scan.log"
 
-CENTRAL_SERVER="10.10.0.127"
+CENTRAL_SERVER="x"
 CENTRAL_USER="egarane"
 CENTRAL_FILE="/var/log/clamav/scan-status.log"
-SSH_PORT=312
+SSH_PORT=x
 
 HOST_IP=$(hostname -I | awk '{print $1}')
 DATE=$(date '+%Y-%m-%d %H:%M')
