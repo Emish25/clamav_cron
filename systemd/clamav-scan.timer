@@ -1,9 +1,8 @@
 [Unit]
-Description=ClamAV Scan toutes les 2 minutes
+Description=ClamAV Scan tous les samedis à 01:00
 
 [Timer]
-OnBootSec=2min
-OnUnitActiveSec=2min
+OnCalendar=Sat 01:00
 Persistent=true
 
 [Install]
