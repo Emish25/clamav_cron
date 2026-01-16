@@ -1,27 +1,10 @@
----
-- name: Déploiement ClamAV Automation (scan + cron)
+- name: Déploiement ClamAV Automation (scan + timer)
   hosts: all
   become: yes
-  become_method: sudo
-  become_user: root
-  become_flags: '-H'
-
-  vars:
-    ansible_remote_tmp: /tmp/.ansible
-
-  environment:
-    ANSIBLE_REMOTE_TEMP: /tmp/.ansible
-    ANSIBLE_HOST_KEY_CHECKING: "False"
 
   tasks:
 
-    - name: Créer dossier temp Ansible (prévention erreur)
-      file:
-        path: /tmp/.ansible
-        state: directory
-        mode: '0777'
-
-    - name: Créer les dossiers ClamAV
+    - name: Créer dossiers ClamAV
       file:
         path: "{{ item }}"
         state: directory
@@ -32,7 +15,7 @@
         - /opt/clamav/scripts
         - /var/log/clamav
 
-    - name: Copier les scripts ClamAV
+    - name: Copier scripts ClamAV
       copy:
         src: "{{ item }}"
         dest: /opt/clamav/scripts/
@@ -43,18 +26,20 @@
         - scripts/clamav_scan.sh
         - scripts/clamav_update.sh
 
-    - name: Copier les cron ClamAV
+    - name: Copier services et timers systemd
       copy:
         src: "{{ item }}"
-        dest: /etc/cron.d/
+        dest: /etc/systemd/system/
         owner: root
         group: root
         mode: '0644'
       loop:
-        - cron/clamav_scan.cron
-        - cron/clamav_update.cron
+        - systemd/clamav-scan.service
+        - systemd/clamav-scan.timer
+        - systemd/clamav-update.service
+        - systemd/clamav-update.timer
 
-    - name: Créer les fichiers de log
+    - name: Créer fichiers de log
       file:
         path: "{{ item }}"
         state: touch
@@ -65,16 +50,14 @@
         - /var/log/clamav/clamav-scan.log
         - /var/log/clamav/freshclam.log
 
-    - name: Ajouter note pour tests manuels
-      debug:
-        msg: |
-          ✅ Déploiement terminé.
-          ⚡ Pour vérifier manuellement :
-          chmod +x /opt/clamav/scripts/clamav_scan.sh
-          chmod +x /opt/clamav/scripts/clamav_update.sh
-          bash /opt/clamav/scripts/clamav_scan.sh
-          bash /opt/clamav/scripts/clamav_update.sh
-          📂 Les logs se trouvent dans :
-            - /var/log/clamav/clamav-scan.log
-            - /var/log/clamav/freshclam.log
-          Chaque ligne indique la date, le hostname et le statut.
+    - name: Reload systemd
+      command: systemctl daemon-reexec
+
+    - name: Activer timers ClamAV
+      systemd:
+        name: "{{ item }}"
+        enabled: yes
+        state: started
+      loop:
+        - clamav-scan.timer
+        - clamav-update.timer
