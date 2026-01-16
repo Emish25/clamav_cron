@@ -1,5 +1,5 @@
 ---
-- name: Deploiement ClamAV Automation (scan + cron)
+- name: Déploiement ClamAV Automation (scan + cron)
   hosts: all
   become: yes
   become_method: sudo
@@ -15,13 +15,13 @@
 
   tasks:
 
-    - name: Creer dossier temp Ansible (prévention erreur)
+    - name: Créer dossier temp Ansible (prévention erreur)
       file:
         path: /tmp/.ansible
         state: directory
         mode: '0777'
 
-    - name: Creer les dossiers ClamAV
+    - name: Créer les dossiers ClamAV
       file:
         path: "{{ item }}"
         state: directory
@@ -54,7 +54,7 @@
         - cron/clamav_scan.cron
         - cron/clamav_update.cron
 
-    - name: Creer les fichiers de log
+    - name: Créer les fichiers de log
       file:
         path: "{{ item }}"
         state: touch
@@ -64,3 +64,17 @@
       loop:
         - /var/log/clamav/clamav-scan.log
         - /var/log/clamav/freshclam.log
+
+    - name: Ajouter note pour tests manuels
+      debug:
+        msg: |
+          ✅ Déploiement terminé.
+          ⚡ Pour vérifier manuellement :
+          chmod +x /opt/clamav/scripts/clamav_scan.sh
+          chmod +x /opt/clamav/scripts/clamav_update.sh
+          bash /opt/clamav/scripts/clamav_scan.sh
+          bash /opt/clamav/scripts/clamav_update.sh
+          📂 Les logs se trouvent dans :
+            - /var/log/clamav/clamav-scan.log
+            - /var/log/clamav/freshclam.log
+          Chaque ligne indique la date, le hostname et le statut.
