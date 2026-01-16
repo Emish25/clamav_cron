@@ -1,58 +1,27 @@
 #!/bin/bash
-#
-# Scan ClamAV automatisé via cron
-#
 
-### CONFIG ###
-SCAN_DIRS="/"
-LOG_FILE="/var/log/clamav/clamav-scan.log"
+LOG_DIR="/var/log/clamav"
+LOG_FILE="$LOG_DIR/clamav_scan_update.log"
+DATE=$(date "+%Y-%m-%d %H:%M:%S")
+HOST=$(hostname)
 
-CENTRAL_SERVER="x"
-CENTRAL_USER="egarane"
-CENTRAL_FILE="/var/log/clamav/scan-status.log"
-SSH_PORT=x
+mkdir -p "$LOG_DIR"
 
-HOST_IP=$(hostname -I | awk '{print $1}')
-DATE=$(date '+%Y-%m-%d %H:%M')
+echo "[$DATE] Début scan ClamAV sur $HOST" >> "$LOG_FILE"
 
-### PRE-CHECK ###
-if ! command -v clamscan >/dev/null 2>&1; then
-    echo "$DATE - clamscan introuvable" >> "$LOG_FILE"
-    exit 2
+# Mise à jour signatures
+freshclam >> "$LOG_FILE" 2>&1
+UPDATE_STATUS=$?
+
+# Scan système (exemple /home)
+clamscan -r /home --infected --log="$LOG_FILE"
+SCAN_STATUS=$?
+
+if [ $UPDATE_STATUS -eq 0 ] && [ $SCAN_STATUS -eq 0 ]; then
+    echo "[$DATE] Scan et mise à jour OK" >> "$LOG_FILE"
+else
+    echo "[$DATE] ERREUR scan ou mise à jour" >> "$LOG_FILE"
 fi
 
-mkdir -p /var/log/clamav
-touch "$LOG_FILE"
-chmod 600 "$LOG_FILE"
-
-### SCAN ###
-clamscan -r --infected --log="$LOG_FILE" $SCAN_DIRS
-EXIT_CODE=$?
-
-### INTERPRETATION ###
-case "$EXIT_CODE" in
-    0)
-        STATUS="Scan OK"
-        MARK="[X]"
-        ;;
-    1)
-        STATUS="VIRUS DETECTÉ"
-        MARK="[!]"
-        ;;
-    *)
-        STATUS="ERREUR SCAN"
-        MARK="[?]"
-        ;;
-esac
-
-### CENTRALISATION ###
-# Créer le fichier central si nécessaire
-ssh -p $SSH_PORT -o BatchMode=yes -o ConnectTimeout=5 "$CENTRAL_USER@$CENTRAL_SERVER" \
-"mkdir -p $(dirname $CENTRAL_FILE); touch $CENTRAL_FILE; chmod 640 $CENTRAL_FILE" 2>/dev/null
-
-# Envoyer le statut
-ssh -p $SSH_PORT -o BatchMode=yes -o ConnectTimeout=5 "$CENTRAL_USER@$CENTRAL_SERVER" \
-"echo '$MARK $HOST_IP - $STATUS - $DATE' >> $CENTRAL_FILE" 2>/dev/null || \
-echo "$DATE - Erreur push central" >> "$LOG_FILE"
-
-exit "$EXIT_CODE"
+echo "[$DATE] Fin du traitement" >> "$LOG_FILE"
+echo "--------------------------------------" >> "$LOG_FILE"
