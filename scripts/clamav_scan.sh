@@ -1,27 +1,35 @@
 #!/bin/bash
+#
+# Scan ClamAV automatique
+#
 
-LOG_DIR="/var/log/clamav"
-LOG_FILE="$LOG_DIR/clamav_scan_update.log"
-DATE=$(date "+%Y-%m-%d %H:%M:%S")
-HOST=$(hostname)
+LOG_FILE="/var/log/clamav/clamav-scan.log"
+SCAN_DIRS="/"
 
-mkdir -p "$LOG_DIR"
+mkdir -p /var/log/clamav
+touch "$LOG_FILE"
+chmod 600 "$LOG_FILE"
 
-echo "[$DATE] Début scan ClamAV sur $HOST" >> "$LOG_FILE"
+DATE=$(date '+%Y-%m-%d %H:%M')
+HOSTNAME=$(hostname)
 
-# Mise à jour signatures
-freshclam >> "$LOG_FILE" 2>&1
-UPDATE_STATUS=$?
-
-# Scan système (exemple /home)
-clamscan -r /home --infected --log="$LOG_FILE"
-SCAN_STATUS=$?
-
-if [ $UPDATE_STATUS -eq 0 ] && [ $SCAN_STATUS -eq 0 ]; then
-    echo "[$DATE] Scan et mise à jour OK" >> "$LOG_FILE"
-else
-    echo "[$DATE] ERREUR scan ou mise à jour" >> "$LOG_FILE"
+# Vérifier que clamscan est présent
+if ! command -v clamscan >/dev/null 2>&1; then
+    echo "$DATE - $HOSTNAME - clamscan introuvable" >> "$LOG_FILE"
+    exit 2
 fi
 
-echo "[$DATE] Fin du traitement" >> "$LOG_FILE"
-echo "--------------------------------------" >> "$LOG_FILE"
+# Lancer le scan
+clamscan -r --infected --log="$LOG_FILE" $SCAN_DIRS
+EXIT_CODE=$?
+
+# Interpréter le résultat
+case "$EXIT_CODE" in
+    0) STATUS="OK" ;;
+    1) STATUS="VIRUS DETECTÉ" ;;
+    *) STATUS="ERREUR SCAN" ;;
+esac
+
+echo "$DATE | $HOSTNAME | $STATUS" >> "$LOG_FILE"
+
+exit "$EXIT_CODE"
