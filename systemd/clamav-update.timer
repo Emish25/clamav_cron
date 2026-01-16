@@ -1,11 +1,9 @@
 [Unit]
-Description=Mise à jour ClamAV hourly
+Description=ClamAV Update tous les dimanches à 01:00
 
 [Timer]
-OnBootSec=5min
-OnUnitActiveSec=1h
+OnCalendar=Sun 01:00
 Persistent=true
 
 [Install]
 WantedBy=timers.target
-
