@@ -1,0 +1,6 @@
+[Unit]
+Description=ClamAV Update Service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/clamav/scripts/clamav_update.sh
