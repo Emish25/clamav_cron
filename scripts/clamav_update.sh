@@ -1,37 +1,26 @@
 #!/bin/bash
-#
-# Mise à jour ClamAV via freshclam
-#
 
-LOG_FILE="/var/log/clamav/freshclam.log"
-
-mkdir -p /var/log/clamav
-touch "$LOG_FILE"
-chmod 600 "$LOG_FILE"
+EVENT_LOG="/var/log/clamav/clamav-events.log"
+UPDATE_LOG="/var/log/clamav/freshclam.log"
 
 DATE=$(date '+%Y-%m-%d %H:%M')
-HOSTNAME=$(hostname)
+HOSTNAME=$(hostname -f)
+IP=$(hostname -I | awk '{print $1}')
 
-# Vérifier que freshclam est présent
+mkdir -p /var/log/clamav
+touch "$EVENT_LOG" "$UPDATE_LOG"
+chmod 600 "$EVENT_LOG" "$UPDATE_LOG"
+
+# Vérifier freshclam
 if ! command -v freshclam >/dev/null 2>&1; then
-    echo "$DATE - $HOSTNAME - freshclam introuvable" >> "$LOG_FILE"
-    exit 2
+  echo "$DATE | $HOSTNAME | $IP | UPDATE | ERREUR ❌ | freshclam introuvable" >> "$EVENT_LOG"
+  exit 2
 fi
 
-# Empêcher les doublons
-if pgrep freshclam >/dev/null; then
-    echo "$DATE - $HOSTNAME - freshclam déjà en cours" >> "$LOG_FILE"
-    exit 0
-fi
-
-# Mise à jour
-freshclam >> "$LOG_FILE" 2>&1
-EXIT_CODE=$?
-
-if [ "$EXIT_CODE" -ne 0 ]; then
-    echo "$DATE - $HOSTNAME - ERREUR mise à jour signatures" >> "$LOG_FILE"
+# Update
+if freshclam >> "$UPDATE_LOG" 2>&1; then
+  echo "$DATE | $HOSTNAME | $IP | UPDATE | OK | signatures à jour" >> "$EVENT_LOG"
 else
-    echo "$DATE | $HOSTNAME | Mise à jour OK" >> "$LOG_FILE"
+  echo "$DATE | $HOSTNAME | $IP | UPDATE | ERREUR ❌ | échec update" >> "$EVENT_LOG"
 fi
 
-exit "$EXIT_CODE"
