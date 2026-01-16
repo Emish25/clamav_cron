@@ -1,3 +1,2 @@
-# Mise à jour signatures toutes les 4 heures
-0 8 * * 6 root /opt/clamav/scripts/clamav_update.sh
+30 11 * * * root /opt/clamav/scripts/clamav_update.sh
 
