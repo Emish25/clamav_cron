@@ -1,0 +1,6 @@
+[Unit]
+Description=ClamAV Scan Service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/clamav/scripts/clamav_scan.sh
