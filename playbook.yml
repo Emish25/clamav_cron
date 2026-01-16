@@ -1,10 +1,33 @@
-- name: Déploiement ClamAV Automation (scan + timer)
+- name: Déploiement ClamAV Automation (scan + timers systemd)
   hosts: all
   become: yes
+  become_method: sudo
+  become_user: root
+  become_flags: '-H'
+
+  vars:
+    ansible_remote_tmp: /tmp/.ansible
+
+  environment:
+    ANSIBLE_REMOTE_TMP: /tmp/.ansible
+    ANSIBLE_LOCAL_TMP: /tmp/.ansible
+    ANSIBLE_HOST_KEY_CHECKING: "False"
 
   tasks:
 
-    - name: Créer dossiers ClamAV
+    # ------------------------------------------------------------------
+    # ANSIBLE TMP (OBLIGATOIRE POUR SEMAPHORE)
+    # ------------------------------------------------------------------
+    - name: Créer dossier temp Ansible
+      file:
+        path: /tmp/.ansible
+        state: directory
+        mode: '0777'
+
+    # ------------------------------------------------------------------
+    # DOSSIERS CLAMAV
+    # ------------------------------------------------------------------
+    - name: Créer les dossiers ClamAV
       file:
         path: "{{ item }}"
         state: directory
@@ -15,7 +38,10 @@
         - /opt/clamav/scripts
         - /var/log/clamav
 
-    - name: Copier scripts ClamAV
+    # ------------------------------------------------------------------
+    # SCRIPTS
+    # ------------------------------------------------------------------
+    - name: Copier les scripts ClamAV
       copy:
         src: "{{ item }}"
         dest: /opt/clamav/scripts/
@@ -26,20 +52,10 @@
         - scripts/clamav_scan.sh
         - scripts/clamav_update.sh
 
-    - name: Copier services et timers systemd
-      copy:
-        src: "{{ item }}"
-        dest: /etc/systemd/system/
-        owner: root
-        group: root
-        mode: '0644'
-      loop:
-        - systemd/clamav-scan.service
-        - systemd/clamav-scan.timer
-        - systemd/clamav-update.service
-        - systemd/clamav-update.timer
-
-    - name: Créer fichiers de log
+    # ------------------------------------------------------------------
+    # LOGS
+    # ------------------------------------------------------------------
+    - name: Créer les fichiers de log
       file:
         path: "{{ item }}"
         state: touch
@@ -50,10 +66,41 @@
         - /var/log/clamav/clamav-scan.log
         - /var/log/clamav/freshclam.log
 
+    # ------------------------------------------------------------------
+    # SYSTEMD SERVICES
+    # ------------------------------------------------------------------
+    - name: Installer services systemd ClamAV
+      copy:
+        src: "{{ item }}"
+        dest: /etc/systemd/system/
+        owner: root
+        group: root
+        mode: '0644'
+      loop:
+        - systemd/clamav-scan.service
+        - systemd/clamav-update.service
+
+    # ------------------------------------------------------------------
+    # SYSTEMD TIMERS
+    # ------------------------------------------------------------------
+    - name: Installer timers systemd ClamAV
+      copy:
+        src: "{{ item }}"
+        dest: /etc/systemd/system/
+        owner: root
+        group: root
+        mode: '0644'
+      loop:
+        - systemd/clamav-scan.timer
+        - systemd/clamav-update.timer
+
+    # ------------------------------------------------------------------
+    # RELOAD + ENABLE
+    # ------------------------------------------------------------------
     - name: Reload systemd
       command: systemctl daemon-reexec
 
-    - name: Activer timers ClamAV
+    - name: Activer et démarrer les timers ClamAV
       systemd:
         name: "{{ item }}"
         enabled: yes
@@ -61,3 +108,26 @@
       loop:
         - clamav-scan.timer
         - clamav-update.timer
+
+    # ------------------------------------------------------------------
+    # MESSAGE FINAL
+    # ------------------------------------------------------------------
+    - name: Déploiement terminé
+      debug:
+        msg: |
+          ✅ ClamAV déployé avec succès (systemd timers)
+
+          ⏱ Timers actifs :
+            - clamav-scan.timer
+            - clamav-update.timer
+
+          🔍 Vérification :
+            systemctl list-timers | grep clamav
+
+          ▶ Test immédiat :
+            systemctl start clamav-scan.service
+            systemctl start clamav-update.service
+
+          📂 Logs :
+            - /var/log/clamav/clamav-scan.log
+            - /var/log/clamav/freshclam.log
