@@ -1,8 +1,8 @@
 [Unit]
-Description=ClamAV Scan tous les samedis à 01:00
+Description=ClamAV Scan tous les dimanche à 01:00
 
 [Timer]
-OnCalendar=Sat 01:00
+OnCalendar=Sun 01:00
 Persistent=true
 
 [Install]
