@@ -1,38 +1,64 @@
 #!/bin/bash
+#
+# ClamAV - Scan automatique avec résumé exploitable
+#
 
-EVENT_LOG="/var/log/clamav/clamav-events.log"
-SCAN_LOG="/var/log/clamav/clamav-scan.log"
+### CONFIGURATION ###
 SCAN_DIR="/"
+LOG_DIR="/var/log/clamav"
+RAW_LOG="${LOG_DIR}/clamav-scan.log"
+EVENT_LOG="${LOG_DIR}/clamav-events.log"
 
-DATE=$(date '+%Y-%m-%d %H:%M')
-HOSTNAME=$(hostname -f)
-IP=$(hostname -I | awk '{print $1}')
+HOSTNAME_FQDN=$(hostname -f)
+HOST_IP=$(hostname -I | awk '{print $1}')
+DATE_NOW=$(date '+%Y-%m-%d %H:%M')
 
-mkdir -p /var/log/clamav
-touch "$EVENT_LOG" "$SCAN_LOG"
-chmod 600 "$EVENT_LOG" "$SCAN_LOG"
+### PRÉPARATION ###
+mkdir -p "$LOG_DIR"
+touch "$RAW_LOG" "$EVENT_LOG"
+chmod 600 "$RAW_LOG" "$EVENT_LOG"
 
-# Vérifier clamscan
+### VÉRIFICATION CLAMS CAN ###
 if ! command -v clamscan >/dev/null 2>&1; then
-  echo "$DATE | $HOSTNAME | $IP | SCAN | ERREUR ❌ | clamscan introuvable" >> "$EVENT_LOG"
+  echo "$DATE_NOW | $HOSTNAME_FQDN | $HOST_IP | SCAN | ERREUR ❌ | clamscan introuvable" >> "$EVENT_LOG"
   exit 2
 fi
 
-# Lancer scan
-clamscan -r --infected --log="$SCAN_LOG" "$SCAN_DIR"
-EXIT_CODE=$?
+### LANCEMENT DU SCAN ###
+clamscan -r "$SCAN_DIR" \
+  --exclude-dir=^/proc \
+  --exclude-dir=^/sys \
+  --exclude-dir=^/dev \
+  --exclude-dir=^/run \
+  --log="$RAW_LOG"
 
-case "$EXIT_CODE" in
-  0)
-    echo "$DATE | $HOSTNAME | $IP | SCAN | OK ✅ | $SCAN_DIR" >> "$EVENT_LOG"
-    ;;
-  1)
-    VIRUS=$(grep "FOUND" "$SCAN_LOG" | tail -1 | cut -d: -f1)
-    echo "$DATE | $HOSTNAME | $IP | SCAN | VIRUS ❌ | $VIRUS" >> "$EVENT_LOG"
-    ;;
-  *)
-    echo "$DATE | $HOSTNAME | $IP | SCAN | ERREUR ❌ | scan interrompu" >> "$EVENT_LOG"
-    ;;
+SCAN_EXIT_CODE=$?
+
+### EXTRACTION SCAN SUMMARY ###
+SCAN_SUMMARY=$(awk '
+/^----------- SCAN SUMMARY -----------/ {flag=1}
+flag {print}
+' "$RAW_LOG")
+
+### STATUT GLOBAL ###
+case "$SCAN_EXIT_CODE" in
+  0) STATUS="OK ✅" ;;
+  1) STATUS="VIRUS DÉTECTÉ ❌" ;;
+  *) STATUS="ERREUR SCAN ❌" ;;
 esac
 
-exit "$EXIT_CODE"
+### ÉCRITURE ÉVÉNEMENT STRUCTURÉ ###
+{
+  echo "========== CLAMAV SCAN SUMMARY =========="
+  echo "Host: $HOSTNAME_FQDN"
+  echo "IP: $HOST_IP"
+  echo "Scan path: $SCAN_DIR"
+  echo "Date: $DATE_NOW"
+  echo "Status: $STATUS"
+  echo
+  echo "$SCAN_SUMMARY"
+  echo "========================================"
+  echo
+} >> "$EVENT_LOG"
+
+exit "$SCAN_EXIT_CODE"
