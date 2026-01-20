@@ -1,5 +1,5 @@
 [Unit]
-Description=ClamAV Update tous les dimanches à 01:00
+Description=ClamAV Update tous les dimanches à 00:00
 
 [Timer]
 OnCalendar=Sun 00:00
