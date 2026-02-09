@@ -1,3 +1,4 @@
+---
 - name: Déploiement ClamAV Automation (scan + timers systemd)
   hosts: all
   become: yes
@@ -25,18 +26,29 @@
         mode: '0777'
 
     # ------------------------------------------------------------------
+    # INSTALLATION CLAMAV
+    # ------------------------------------------------------------------
+    - name: Installer ClamAV
+      apt:
+        name:
+          - clamav
+          - clamav-daemon
+        state: present
+        update_cache: yes
+
+    # ------------------------------------------------------------------
     # DOSSIERS CLAMAV
     # ------------------------------------------------------------------
     - name: Créer les dossiers ClamAV
       file:
-        path: "{{ item }}"
+        path: "{{ item.path }}"
         state: directory
-        owner: root
-        group: root
-        mode: '0755'
+        owner: "{{ item.owner }}"
+        group: "{{ item.group }}"
+        mode: "{{ item.mode }}"
       loop:
-        - /opt/clamav/scripts
-        - /var/log/clamav
+        - { path: /opt/clamav/scripts, owner: root,   group: root,   mode: '0755' }
+        - { path: /var/log/clamav,     owner: clamav, group: clamav, mode: '0750' }
 
     # ------------------------------------------------------------------
     # SCRIPTS
@@ -55,16 +67,32 @@
     # ------------------------------------------------------------------
     # LOGS
     # ------------------------------------------------------------------
-    - name: Créer les fichiers de log
+    - name: Créer les fichiers de log ClamAV
       file:
-        path: "{{ item }}"
+        path: "{{ item.path }}"
         state: touch
-        owner: root
-        group: root
-        mode: '0600'
+        owner: "{{ item.owner }}"
+        group: "{{ item.group }}"
+        mode: "{{ item.mode }}"
       loop:
-        - /var/log/clamav/clamav-scan.log
-        - /var/log/clamav/freshclam.log
+        - { path: /var/log/clamav/freshclam.log,    owner: clamav, group: clamav, mode: '0640' }
+        - { path: /var/log/clamav/clamav-scan.log, owner: root,   group: root,   mode: '0600' }
+
+    # ------------------------------------------------------------------
+    # CONFIGURATION CLAMAV (EXCLUSIONS SOC)
+    # ------------------------------------------------------------------
+    - name: Ajouter exclusions ClamAV
+      lineinfile:
+        path: /etc/clamav/clamd.conf
+        line: "{{ item }}"
+        state: present
+      loop:
+        - 'ExcludePath ^/opt/Shuffle'
+        - 'ExcludePath ^/var/opt/kaspersky'
+        - 'ExcludePath ^/proc'
+        - 'ExcludePath ^/sys'
+        - 'ExcludePath ^/dev'
+        - 'ExcludePath ^/var/log'
 
     # ------------------------------------------------------------------
     # SYSTEMD SERVICES
@@ -95,10 +123,19 @@
         - systemd/clamav-update.timer
 
     # ------------------------------------------------------------------
-    # RELOAD + ENABLE
+    # SYSTEMD RELOAD
     # ------------------------------------------------------------------
     - name: Reload systemd
       command: systemctl daemon-reexec
+
+    # ------------------------------------------------------------------
+    # SERVICES & TIMERS
+    # ------------------------------------------------------------------
+    - name: Activer et démarrer ClamAV daemon
+      systemd:
+        name: clamav-daemon
+        enabled: yes
+        state: started
 
     - name: Activer et démarrer les timers ClamAV
       systemd:
@@ -124,10 +161,10 @@
           🔍 Vérification :
             systemctl list-timers | grep clamav
 
-          ▶ Test immédiat :
-            systemctl start clamav-scan.service
+          ▶ Tests manuels :
             systemctl start clamav-update.service
+            systemctl start clamav-scan.service
 
           📂 Logs :
-            - /var/log/clamav/clamav-scan.log
             - /var/log/clamav/freshclam.log
+            - /var/log/clamav/clamav-scan.log
